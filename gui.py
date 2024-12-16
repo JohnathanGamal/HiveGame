@@ -217,15 +217,16 @@ class HiveGameGUI:
         reset_button = tk.Button(self.info_frame, text="Restart", font=("Segoe UI", 16), bg="#e74c3c",
                                  fg="white", command=self.reset_game)
         reset_button.pack(side=tk.RIGHT, padx=10)
-        def reset_game(self):
-        """Re-instantiate the class to start the game from the beginning."""
-        # Destroy the current instance
-        self.root.destroy()  # Close the current Tkinter root window
 
-        # Create a new root window and re-instantiate the HiveGameGUI class
-        new_root = tk.Tk()
-        new_game = HiveGameGUI(new_root)
-        new_root.mainloop()
+        def reset_game(self):
+            """Re-instantiate the class to start the game from the beginning."""
+            # Destroy the current instance
+            self.root.destroy()  # Close the current Tkinter root window
+
+            # Create a new root window and re-instantiate the HiveGameGUI class
+            new_root = tk.Tk()
+            new_game = HiveGameGUI(new_root)
+            new_root.mainloop()
 
     def resize_images(self):
         """Resize images to fit inside the hexagon."""
@@ -355,4 +356,183 @@ class HiveGameGUI:
                 hexagon_tag = f"cell-{row}-{col}"
                 self.canvas.itemconfig(hexagon_tag, outline=self.colors[top_piece[0]], width=5)
 
-        self.selected_piece_valid_moves = None
+        self.selected_piece_valid_moves = None
+
+    def place_piece(self, row, col, piece_type=None):
+
+        character = self.current_character.get()
+
+        if piece_type is not None:
+            character = piece_type
+
+        if self.first_play == True:
+            row = (int)(self.board_size / 2)
+            col = (int)(self.board_size / 2)
+            self.first_play = False
+
+        if self.current_player == "Player 1":
+            counter = self.turn_counter[0]
+        else:
+            counter = self.turn_counter[1]
+
+        if counter > 0:
+            neighbors = self.backend.boardState.get_neighbors(row, col)
+            for neighbor in neighbors:
+                # Check if the cell is occupied
+                if self.backend.boardState.is_cell_occupied(neighbor[0], neighbor[1]):
+                    neighbor_piece = self.board[neighbor[0]][neighbor[1]]
+
+                    if isinstance(neighbor_piece, list):  # If it's a stack
+                        top_piece = neighbor_piece[-1]  # Topmost piece
+                        owner = top_piece[0]  # Owner of the top piece
+                    else:  # Single piece
+                        owner = neighbor_piece[0]  # Owner of the single piece
+
+                    # Check ownership
+                    if self.current_player != owner:
+                        messagebox.showwarning("Invalid Placement", "Can't place piece adjacent to enemy.")
+                        return
+
+        # Check if the player still has pieces left
+        if self.player_pieces[self.current_player][character] <= 0:
+            messagebox.showwarning("No Pieces Left", f"{character} has run out. Please choose a different piece.")
+            return
+
+        if not self.backend.is_placement_valid(self.current_player, row, col, character):
+            messagebox.showwarning("Invalid Placement", "This move is not valid.")
+            return
+
+        if (character == "Bee"):
+            if (self.current_player == "Player 1"):
+                self.bee_placed[0] = True
+                self.bee_coordinates[0] = (row, col)
+            else:
+                self.bee_placed[1] = True
+                self.bee_coordinates[1] = (row, col)
+
+        if (character != "Bee" and self.turn_counter[0] == 3 and self.bee_placed[
+            0] is False and self.current_player == "Player 1"):
+            messagebox.showwarning("Bee is not placed yet",
+                                   "Bee must be placed before the fifth turn. Please place the Bee.")
+            return
+        elif (character != "Bee" and self.turn_counter[1] == 3 and self.bee_placed[
+            1] is False and self.current_player == "Player 2"):
+            messagebox.showwarning("Bee is not placed yet",
+                                   "Bee must be placed before the fifth turn. Please place the Bee.")
+            return
+
+        # Update GUI to reflect the move
+        x_offset = col * self.cell_size * 1.5
+        y_offset = row * self.cell_size * math.sqrt(3)
+        if col % 2 == 1:
+            y_offset += self.cell_size * math.sqrt(3) / 2
+        image = self.character_images[character]
+        self.canvas.create_image(x_offset, y_offset, image=image, tags=f"image-{row}-{col}")
+
+        # Update the hexagon outline color and thickness
+        hexagon_tag = f"cell-{row}-{col}"
+        self.canvas.itemconfig(hexagon_tag, outline=self.colors[self.current_player], width=5)
+
+        # After successfully placing the piece
+        player_index = 0 if self.current_player == "Player 1" else 1
+        # self.pieces_on_board[player_index].append((row, col, character))
+
+        # Place piece in the backend
+        self.backend.make_move((None, (row, col, character)), self.current_player)
+
+        # Check for game-over conditions
+        if self.backend.check_bee_surrounded("Player 1"):
+            self.end_game("Player 2 wins!")
+        elif self.backend.check_bee_surrounded("Player 2"):
+            self.end_game("Player 1 wins!")
+
+        # Update piece count display
+        self.piece_count_label.config(text=self.get_piece_count_text())
+
+        # Switch players
+        self.switch_player()
+
+    def move_piece(self, row, col, computer_mode=False):
+
+        player_index = 0 if self.current_player == "Player 1" else 1
+        if not self.selected_piece_to_move:
+            return  # No piece selected to move
+
+        if computer_mode == False and (row, col) not in self.selected_piece_valid_moves:
+            messagebox.showwarning("Invalid Move", "Please choose a valid move.")
+            return
+        if self.current_player == "Player 1":
+            if self.bee_placed[0] is False:
+                messagebox.showwarning(
+                    "Invalid Move", "You Can't Move pieces before placing your Bee")
+                hexagon_tag = f"cell-{self.selected_piece_coord[0]}-{self.selected_piece_coord[1]}"
+                self.canvas.itemconfig(
+                    hexagon_tag, outline=self.colors["Player 1"], width=5)
+                self.selected_piece_to_move = None
+                self.selected_piece_coord = None
+                return
+        else:
+            if self.bee_placed[1] is False:
+                messagebox.showwarning(
+                    "Invalid Move", "You Can't Move pieces before placing your Bee")
+                hexagon_tag = f"cell-{self.selected_piece_coord[0]}-{self.selected_piece_coord[1]}"
+                self.canvas.itemconfig(
+                    hexagon_tag, outline=self.colors["Player 2"], width=5)
+                self.selected_piece_to_move = None
+                self.selected_piece_coord = None
+                return
+
+        # Update GUI to reflect the move
+        # Retrieve the piece character
+        character = self.selected_piece_to_move[1]
+
+        # # Update backend with the move
+        # self.board[row][col] = self.selected_piece_to_move
+
+        if character == "Bee":
+            self.bee_coordinates[player_index] = (row, col)
+
+        # Handle stacking logic if the target cell is not empty
+        if self.board[row][col] is not None:
+            if character != "Beetle":
+                messagebox.showwarning("Invalid Move", "Only Beetles can move onto occupied cells.")
+                return  # Non-Beetle pieces cannot move onto occupied cells
+            else:
+                # Add the Beetle to the top of the stack
+                if isinstance(self.board[row][col], list):
+
+                    self.board[row][col].append(self.selected_piece_to_move)
+                else:
+                    self.board[row][col] = [self.board[row][col], self.selected_piece_to_move]
+                # After successfully placing the piece
+                self.pieces_on_board[player_index].append((row, col, character))
+
+        else:
+            # Move the piece to an empty cell
+            self.board[row][col] = [self.selected_piece_to_move]
+            self.pieces_on_board[player_index].append((row, col, character))
+
+
+        # Remove the piece image from the original position
+        self.remove_piece(self.selected_piece_coord[0], self.selected_piece_coord[1])
+
+        # Calculate new position offsets
+        x_offset = col * self.cell_size * 1.5
+        y_offset = row * self.cell_size * math.sqrt(3)
+        if col % 2 == 1:
+            y_offset += self.cell_size * math.sqrt(3) / 2
+        image = self.character_images[character]
+        self.canvas.create_image(x_offset, y_offset, image=image, tags=f"image-{row}-{col}")
+
+        # Update the hexagon outline color and thickness for the new position
+        hexagon_tag = f"cell-{row}-{col}"
+        self.canvas.itemconfig(hexagon_tag, outline=self.colors[self.current_player], width=5)
+
+        # Check for game-over conditions
+        if self.backend.check_bee_surrounded("Player 1"):
+            self.end_game("Player 2 wins!")
+        elif self.backend.check_bee_surrounded("Player 2"):
+            self.end_game("Player 1 wins!")
+
+        self.switch_player()
+        return True
