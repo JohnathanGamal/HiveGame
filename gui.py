@@ -537,160 +537,160 @@ class HiveGameGUI:
         self.switch_player()
         return True
 
-def get_piece_count_text(self):
-        """Get the remaining piece count for each player."""
-        player_1_text = "Bee:{} Ant:{} Spider:{} Grasshopper:{} Beetle:{}".format(
-            self.player_pieces["Player 1"]["Bee"], self.player_pieces["Player 1"]["Ant"],
-            self.player_pieces["Player 1"]["Spider"], self.player_pieces["Player 1"]["Grasshopper"],
-            self.player_pieces["Player 1"]["Beetle"])
-        player_2_text = "Bee:{} Ant:{} Spider:{} Grasshopper:{} Beetle:{}".format(
-            self.player_pieces["Player 2"]["Bee"], self.player_pieces["Player 2"]["Ant"],
-            self.player_pieces["Player 2"]["Spider"], self.player_pieces["Player 2"]["Grasshopper"],
-            self.player_pieces["Player 2"]["Beetle"])
-        # return f"Player 1: {player_1_text}    |    Player 2: {player_2_text}"
-        return f"Player 1: {player_1_text}\n―――――――――――――――――――――――――\nPlayer 2: {player_2_text}"
+    def get_piece_count_text(self):
+            """Get the remaining piece count for each player."""
+            player_1_text = "Bee:{} Ant:{} Spider:{} Grasshopper:{} Beetle:{}".format(
+                self.player_pieces["Player 1"]["Bee"], self.player_pieces["Player 1"]["Ant"],
+                self.player_pieces["Player 1"]["Spider"], self.player_pieces["Player 1"]["Grasshopper"],
+                self.player_pieces["Player 1"]["Beetle"])
+            player_2_text = "Bee:{} Ant:{} Spider:{} Grasshopper:{} Beetle:{}".format(
+                self.player_pieces["Player 2"]["Bee"], self.player_pieces["Player 2"]["Ant"],
+                self.player_pieces["Player 2"]["Spider"], self.player_pieces["Player 2"]["Grasshopper"],
+                self.player_pieces["Player 2"]["Beetle"])
+            # return f"Player 1: {player_1_text}    |    Player 2: {player_2_text}"
+            return f"Player 1: {player_1_text}\n―――――――――――――――――――――――――\nPlayer 2: {player_2_text}"
 
-def switch_player(self):
-    if self.current_player == "Player 1":
-        self.turn_counter[0] += 1
-        self.current_player = "Player 2"
-    else:
-        self.turn_counter[1] += 1
-        self.current_player = "Player 1"
+    def switch_player(self):
+        if self.current_player == "Player 1":
+            self.turn_counter[0] += 1
+            self.current_player = "Player 2"
+        else:
+            self.turn_counter[1] += 1
+            self.current_player = "Player 1"
 
-    self.backend.current_player = self.current_player
-    self.info_label.config(text=f"{self.current_player}'s Turn")
+        self.backend.current_player = self.current_player
+        self.info_label.config(text=f"{self.current_player}'s Turn")
 
-    # If it's the computer's turn, let the AI make a move
-    if self.game_mode == "CvC" or (self.game_mode == "PvC" and self.current_player == "Player 2"):
-        self.root.after(250, self.computer_move)  # Add a slight delay for better visualization
+        # If it's the computer's turn, let the AI make a move
+        if self.game_mode == "CvC" or (self.game_mode == "PvC" and self.current_player == "Player 2"):
+            self.root.after(250, self.computer_move)  # Add a slight delay for better visualization
 
-def computer_move(self):
-    """Handle the computer's turn."""
-    self.info_label.config(text=f"PC is thinking...")
-    self.root.update_idletasks()  # Update the GUI to show the status
+    def computer_move(self):
+        """Handle the computer's turn."""
+        self.info_label.config(text=f"PC is thinking...")
+        self.root.update_idletasks()  # Update the GUI to show the status
 
-    if self.game_mode == "CvC":
+        if self.game_mode == "CvC":
+            player_index = 0 if self.current_player == "Player 1" else 1
+        else:
+            player_index = 0
+
+        # Get the best move from the AI
+        best_move = self.ai.iterative_deepening(
+            is_maximizing_player=(self.current_player == "Player 1"),
+            max_depth=self.max_depth[player_index],  # Adjust depth as needed
+            time_limit=self.time_limit[player_index]  # Allow time in seconds for the AI to calculate
+        )
+
+        if not best_move:
+            messagebox.showinfo(
+                "Pass", f"{self.current_player} Skipped his turn.")
+            self.switch_player()
+            return
+
+        # Unpack the move (source_row, source_col) -> (target_row, target_col)
+        origin, destination = best_move
+        if origin is None:
+            # Place a new piece on the board
+            target_row, target_col, piece_type = destination
+            self.place_piece(target_row, target_col, piece_type)
+        else:
+            # Move an existing piece
+            source_row, source_col = origin
+            target_row, target_col = destination
+
+            # Retrieve the board cell and handle list or single element cases
+            cell_content = self.board[source_row][source_col]
+
+            if isinstance(cell_content, list):
+                if len(cell_content) == 1:
+                    self.board[source_row][source_col] = cell_content[0]  # Convert to single element
+                    self.selected_piece_to_move = cell_content[0]
+                else:
+                    self.selected_piece_to_move = cell_content[-1]  # Take the last element
+            else:
+                self.selected_piece_to_move = cell_content
+
+            self.selected_piece_coord = (source_row, source_col)
+            was_moved = self.move_piece(target_row, target_col, computer_mode=True)
+            if was_moved:
+                hexagon_tag = f"cell-{self.selected_piece_coord[0]}-{self.selected_piece_coord[1]}"
+                self.canvas.itemconfig(hexagon_tag, outline=self.colors["None"], width=1)
+                self.selected_piece_to_move = None
+                self.selected_piece_coord = None
+        # Check if the game is over
+        if self.backend.check_bee_surrounded("Player 1"):
+            self.end_game("Player 2 wins!")
+        elif self.backend.check_bee_surrounded("Player 2"):
+            self.end_game("Player 1 wins!")
+
+    def end_game(self, message):
+        """End the game and display the result."""
+        messagebox.showinfo("Game Over", message + "\nRestart The Game To Continue")
+        self.canvas.delete("all")
+        self.canvas.unbind("<Button-1>")
+
+    def remove_piece(self, row, col):
+        """Remove the piece from the specified hexagon."""
+        # Check if there is a piece to remove
+        if self.board[row][col] is None:
+            return  # No piece to remove
+
+        x_offset = col * self.cell_size * 1.5
+        y_offset = row * self.cell_size * math.sqrt(3)
+        if col % 2 == 1:
+            y_offset += self.cell_size * math.sqrt(3) / 2
+
         player_index = 0 if self.current_player == "Player 1" else 1
-    else:
-        player_index = 0
-
-    # Get the best move from the AI
-    best_move = self.ai.iterative_deepening(
-        is_maximizing_player=(self.current_player == "Player 1"),
-        max_depth=self.max_depth[player_index],  # Adjust depth as needed
-        time_limit=self.time_limit[player_index]  # Allow time in seconds for the AI to calculate
-    )
-
-    if not best_move:
-        messagebox.showinfo(
-            "Pass", f"{self.current_player} Skipped his turn.")
-        self.switch_player()
-        return
-
-    # Unpack the move (source_row, source_col) -> (target_row, target_col)
-    origin, destination = best_move
-    if origin is None:
-        # Place a new piece on the board
-        target_row, target_col, piece_type = destination
-        self.place_piece(target_row, target_col, piece_type)
-    else:
-        # Move an existing piece
-        source_row, source_col = origin
-        target_row, target_col = destination
-
-        # Retrieve the board cell and handle list or single element cases
-        cell_content = self.board[source_row][source_col]
-
-        if isinstance(cell_content, list):
-            if len(cell_content) == 1:
-                self.board[source_row][source_col] = cell_content[0]  # Convert to single element
-                self.selected_piece_to_move = cell_content[0]
-            else:
-                self.selected_piece_to_move = cell_content[-1]  # Take the last element
-        else:
-            self.selected_piece_to_move = cell_content
-
-        self.selected_piece_coord = (source_row, source_col)
-        was_moved = self.move_piece(target_row, target_col, computer_mode=True)
-        if was_moved:
-            hexagon_tag = f"cell-{self.selected_piece_coord[0]}-{self.selected_piece_coord[1]}"
-            self.canvas.itemconfig(hexagon_tag, outline=self.colors["None"], width=1)
-            self.selected_piece_to_move = None
-            self.selected_piece_coord = None
-    # Check if the game is over
-    if self.backend.check_bee_surrounded("Player 1"):
-        self.end_game("Player 2 wins!")
-    elif self.backend.check_bee_surrounded("Player 2"):
-        self.end_game("Player 1 wins!")
-
-def end_game(self, message):
-    """End the game and display the result."""
-    messagebox.showinfo("Game Over", message + "\nRestart The Game To Continue")
-    self.canvas.delete("all")
-    self.canvas.unbind("<Button-1>")
-
-def remove_piece(self, row, col):
-    """Remove the piece from the specified hexagon."""
-    # Check if there is a piece to remove
-    if self.board[row][col] is None:
-        return  # No piece to remove
-
-    x_offset = col * self.cell_size * 1.5
-    y_offset = row * self.cell_size * math.sqrt(3)
-    if col % 2 == 1:
-        y_offset += self.cell_size * math.sqrt(3) / 2
-
-    player_index = 0 if self.current_player == "Player 1" else 1
-
-    # Find and remove any image associated with this cell
-    image_items = self.canvas.find_withtag(f"image-{row}-{col}")
-    for image_item in image_items:
-        self.canvas.delete(image_item)
-
-    # Update the board to None (removes the player's piece)
-    if isinstance(self.board[row][col], list):
-
-        if len(self.board[row][col]) == 1:
-            self.pieces_on_board[player_index].remove((row, col, self.board[row][col][0][1]))
-
-            self.board[row][col] = None
-        else:
-            removed_piece = self.board[row][col].pop(-1)
-            self.pieces_on_board[player_index].remove((row, col, removed_piece[1]))
-
-            if len(self.board[row][col]) == 1:
-                self.board[row][col] = self.board[row][col][0]
-                character = self.board[row][col][1]
-                image = self.character_images[character]
-
-                # Update the hexagon outline color and thickness
-                hexagon_tag = f"cell-{row}-{col}"
-                self.canvas.itemconfig(hexagon_tag, outline=self.colors[self.board[row][col][0]], width=5)
-            else:
-                character = self.board[row][col][-1][1]
-                image = self.character_images[character]
-
-                # Update the hexagon outline color and thickness
-                hexagon_tag = f"cell-{row}-{col}"
-                self.canvas.itemconfig(hexagon_tag, outline=self.colors[self.board[row][col][-1][0]], width=5)
-
-            # Draw the piece image
-            self.canvas.create_image(x_offset, y_offset, image=image, tags=f"image-{row}-{col}")
-    else:
-        self.pieces_on_board[player_index].remove((row, col, self.board[row][col][1]))
-        self.board[row][col] = None
-
-        # Remove the image of the piece from the canvas
-        hexagon_tag = f"cell-{row}-{col}"
 
         # Find and remove any image associated with this cell
         image_items = self.canvas.find_withtag(f"image-{row}-{col}")
         for image_item in image_items:
             self.canvas.delete(image_item)
 
-        # Optionally reset the hexagon outline to its default state
-        self.canvas.itemconfig(hexagon_tag, outline="#7f8c8d", width=2)
+        # Update the board to None (removes the player's piece)
+        if isinstance(self.board[row][col], list):
+
+            if len(self.board[row][col]) == 1:
+                self.pieces_on_board[player_index].remove((row, col, self.board[row][col][0][1]))
+
+                self.board[row][col] = None
+            else:
+                removed_piece = self.board[row][col].pop(-1)
+                self.pieces_on_board[player_index].remove((row, col, removed_piece[1]))
+
+                if len(self.board[row][col]) == 1:
+                    self.board[row][col] = self.board[row][col][0]
+                    character = self.board[row][col][1]
+                    image = self.character_images[character]
+
+                    # Update the hexagon outline color and thickness
+                    hexagon_tag = f"cell-{row}-{col}"
+                    self.canvas.itemconfig(hexagon_tag, outline=self.colors[self.board[row][col][0]], width=5)
+                else:
+                    character = self.board[row][col][-1][1]
+                    image = self.character_images[character]
+
+                    # Update the hexagon outline color and thickness
+                    hexagon_tag = f"cell-{row}-{col}"
+                    self.canvas.itemconfig(hexagon_tag, outline=self.colors[self.board[row][col][-1][0]], width=5)
+
+                # Draw the piece image
+                self.canvas.create_image(x_offset, y_offset, image=image, tags=f"image-{row}-{col}")
+        else:
+            self.pieces_on_board[player_index].remove((row, col, self.board[row][col][1]))
+            self.board[row][col] = None
+
+            # Remove the image of the piece from the canvas
+            hexagon_tag = f"cell-{row}-{col}"
+
+            # Find and remove any image associated with this cell
+            image_items = self.canvas.find_withtag(f"image-{row}-{col}")
+            for image_item in image_items:
+                self.canvas.delete(image_item)
+
+            # Optionally reset the hexagon outline to its default state
+            self.canvas.itemconfig(hexagon_tag, outline="#7f8c8d", width=2)
 
 
 # Create the main window
