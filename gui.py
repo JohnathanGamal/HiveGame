@@ -217,3 +217,142 @@ class HiveGameGUI:
         reset_button = tk.Button(self.info_frame, text="Restart", font=("Segoe UI", 16), bg="#e74c3c",
                                  fg="white", command=self.reset_game)
         reset_button.pack(side=tk.RIGHT, padx=10)
+        def reset_game(self):
+        """Re-instantiate the class to start the game from the beginning."""
+        # Destroy the current instance
+        self.root.destroy()  # Close the current Tkinter root window
+
+        # Create a new root window and re-instantiate the HiveGameGUI class
+        new_root = tk.Tk()
+        new_game = HiveGameGUI(new_root)
+        new_root.mainloop()
+
+    def resize_images(self):
+        """Resize images to fit inside the hexagon."""
+        resized_images = {}
+        target_size = int(self.cell_size)
+        for name, img in self.original_images.items():
+            img_resized = img.resize((target_size, target_size))
+            resized_images[name] = ImageTk.PhotoImage(img_resized)
+        return resized_images
+
+    def draw_grid(self):
+        """Draw hexagonal cells on the grid."""
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                x_offset = col * self.cell_size * 1.5
+                y_offset = row * self.cell_size * math.sqrt(3)
+                if col % 2 == 1:
+                    y_offset += self.cell_size * math.sqrt(3) / 2
+
+                points = self.hexagon_points(x_offset, y_offset, self.cell_size)
+                self.canvas.create_polygon(points, outline="#7f8c8d", fill="#ffffff", width=2, tags=f"cell-{row}-{col}")
+
+                # Draw row and column text (for debugging purposes, you can disable it later)
+                text_x = x_offset
+                # Adjust the text position slightly above the center
+                text_y = y_offset - self.cell_size * 0.5 - 12
+                self.canvas.create_text(text_x, text_y, text=f"{row},{col}", fill="black", font=("Segoe UI", 8))
+
+    def hexagon_points(self, x, y, size):
+        """Calculate the six corners of a hexagon centered at (x, y)."""
+        points = []
+        for i in range(6):
+            angle = math.radians(60 * i)
+            points.append(x + size * math.cos(angle))
+            points.append(y + size * math.sin(angle))
+        return points
+
+    def on_click(self, event):
+        """Handle click events to place a piece."""
+        x, y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
+        item = self.canvas.find_closest(x, y)[0]
+        tags = self.canvas.gettags(item)
+
+        if not tags or not (tags[0].startswith("cell") or tags[0].startswith("image")):
+            return
+
+        row, col = map(int, tags[0].split("-")[1:])
+
+        if self.board[row][col] is None:
+            if self.selected_piece_to_move is not None:
+                # default on move
+                was_moved = self.move_piece(row, col)
+                if not was_moved:
+                    return
+                if self.board[self.selected_piece_coord[0]][self.selected_piece_coord[1]] is None:
+                    hexagon_tag = f"cell-{self.selected_piece_coord[0]}-{self.selected_piece_coord[1]}"
+                    self.canvas.itemconfig(hexagon_tag, outline=self.colors["None"], width=1)
+                self.selected_piece_to_move = None
+                self.selected_piece_coord = None
+
+                self.clear_selected_moves(row, col)
+                return
+            else:
+                self.place_piece(row, col)
+        else:
+            if self.selected_piece_to_move is not None and self.selected_piece_coord == (row, col):
+                hexagon_tag = f"cell-{row}-{col}"
+                self.canvas.itemconfig(hexagon_tag, outline=self.colors[self.current_player], width=5)
+                self.clear_selected_moves(row, col)
+                self.selected_piece_coord = None
+                self.selected_piece_to_move = None
+                return
+
+            if self.selected_piece_to_move is not None and self.selected_piece_to_move[1] == "Beetle":
+                was_moved = self.move_piece(row, col)
+                # if not was_moved:
+                #     return
+                hexagon_tag = f"cell-{self.selected_piece_coord[0]}-{self.selected_piece_coord[1]}"
+                self.canvas.itemconfig(hexagon_tag, outline=self.colors["None"], width=1)
+                self.selected_piece_to_move = None
+                self.selected_piece_coord = None
+
+                self.clear_selected_moves(row, col)
+                return
+            else:
+                if isinstance(self.board[row][col], list) and self.current_player == self.board[row][col][-1][0]:
+                    self.selected_piece_to_move = self.board[row][col][-1]
+                elif self.current_player == self.board[row][col][0]:
+                    # Prevent player from selecting a piece before placing bee
+                    player_index = 0 if self.current_player == "Player 1" else 1
+                    if self.bee_placed[player_index] is False:
+                        messagebox.showwarning(
+                            "Invalid Move", "You Can't Move pieces before placing your Bee")
+                        return
+                    # Default on select
+                    if self.selected_piece_to_move is not None:
+                        selected_row, selected_col = self.selected_piece_coord
+                        hexagon_tag = f"cell-{selected_row}-{selected_col}"
+                        self.canvas.itemconfig(hexagon_tag, outline=self.colors[self.current_player], width=5)
+                        self.clear_selected_moves(row, col)
+
+                    self.selected_piece_to_move = self.board[row][col]
+                else:
+                    return
+
+                self.selected_piece_coord = (row, col)
+                self.selected_piece_valid_moves = self.backend.get_piece_moves(row, col)
+                hexagon_tag = f"cell-{row}-{col}"
+                self.canvas.itemconfig(hexagon_tag, outline=self.colors["selection"], width=5)
+
+                for [row, col] in self.selected_piece_valid_moves:
+                    hexagon_tag = f"cell-{row}-{col}"
+                    self.canvas.itemconfig(hexagon_tag, outline=self.colors["moves"], width=5)
+
+                # Update the hexagon outline color and thickness
+
+    def clear_selected_moves(self, row, col):
+        for [row, col] in self.selected_piece_valid_moves:
+            if not self.backend.boardState.is_cell_occupied(row, col):
+                hexagon_tag = f"cell-{row}-{col}"
+                self.canvas.itemconfig(
+                    hexagon_tag, outline=self.colors["None"], width=1)
+            else:
+                cell_content = self.board[row][col]
+                top_piece = cell_content[-1] if isinstance(cell_content, list) else cell_content
+
+                hexagon_tag = f"cell-{row}-{col}"
+                self.canvas.itemconfig(hexagon_tag, outline=self.colors[top_piece[0]], width=5)
+
+        self.selected_piece_valid_moves = None
