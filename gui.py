@@ -218,15 +218,15 @@ class HiveGameGUI:
                                  fg="white", command=self.reset_game)
         reset_button.pack(side=tk.RIGHT, padx=10)
 
-        def reset_game(self):
-            """Re-instantiate the class to start the game from the beginning."""
-            # Destroy the current instance
-            self.root.destroy()  # Close the current Tkinter root window
+    def reset_game(self):
+        """Re-instantiate the class to start the game from the beginning."""
+        # Destroy the current instance
+        self.root.destroy()  # Close the current Tkinter root window
 
-            # Create a new root window and re-instantiate the HiveGameGUI class
-            new_root = tk.Tk()
-            new_game = HiveGameGUI(new_root)
-            new_root.mainloop()
+        # Create a new root window and re-instantiate the HiveGameGUI class
+        new_root = tk.Tk()
+        new_game = HiveGameGUI(new_root)
+        new_root.mainloop()
 
     def resize_images(self):
         """Resize images to fit inside the hexagon."""
