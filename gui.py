@@ -1,12 +1,17 @@
+import os
+import sys
+import math
+
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk
-import math
 
 from engine import HiveGame
 from hiveAI import HiveAI
 
+basedir = getattr(sys, '_MEIPASS', os.path.dirname(__file__))
+assets_dir = os.path.join(basedir, "assets")
 
 class HiveGameGUI:
 
@@ -36,11 +41,11 @@ class HiveGameGUI:
         }
         # Load character images
         self.original_images = {
-            "Bee": Image.open("bee.png"),
-            "Ant": Image.open("ant.png"),
-            "Spider": Image.open("spider.png"),
-            "Grasshopper": Image.open("grasshopper.png"),
-            "Beetle": Image.open("beetle.png"),
+            "Bee": Image.open(os.path.join(assets_dir, "bee.png")),
+            "Ant": Image.open(os.path.join(assets_dir, "ant.png")),
+            "Spider": Image.open(os.path.join(assets_dir, "spider.png")),
+            "Grasshopper": Image.open(os.path.join(assets_dir, "grasshopper.png")),
+            "Beetle": Image.open(os.path.join(assets_dir, "beetle.png")),
         }
         self.character_images = self.resize_images()
 
@@ -225,6 +230,7 @@ class HiveGameGUI:
 
         # Create a new root window and re-instantiate the HiveGameGUI class
         new_root = tk.Tk()
+        new_root.iconbitmap(os.path.join(assets_dir, "hive_icon.ico"))
         new_game = HiveGameGUI(new_root)
         new_root.mainloop()
 
@@ -695,5 +701,6 @@ class HiveGameGUI:
 
 # Create the main window
 root = tk.Tk()
+root.iconbitmap(os.path.join(assets_dir, "hive_icon.ico"))
 game = HiveGameGUI(root)
 root.mainloop()
