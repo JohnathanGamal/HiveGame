@@ -2,7 +2,7 @@
 A project for our `CSE 472s: ARTIFICIAL INTELLIGENCE` course, focused on implementing AI algorithms and studying game-playing strategies.
 
 ## Game Overview
-Hive is a two-player strategy game played on any flat surface without a board. The game consists of 22 pieces: 11 black and 11 white, each resembling creatures with unique movement patterns.
+Hive is a two-player strategy game played on any flat surface without a board. The game consists of 22 pieces: 11 pieces for each player, each resembling creatures with unique movement patterns.
 
 The game begins when the first piece is placed, and subsequent pieces form the playing area. The objective is to completely surround your opponent's Queen Bee while preventing your own Queen Bee from being surrounded. The player who surrounds the opponent's Queen Bee first wins the game.
 
@@ -11,7 +11,7 @@ This project aims to study AI game-playing algorithms like `Minimax` and `Alpha-
 
 ## Project documents
 
-- [Report link](https://docs.google.com/document/d/1x2XxNLScSTTDHhFSzYN4qggKg_jJV0k8jCkGaN62ES4/edit?usp=sharing)  – Detailed project report.
+- [Report link](https://drive.google.com/file/d/1BsbyqM9plb_7j5rSjCvhhprzm_g-VGV1/view?usp=sharing)  – Detailed project report.
 
 - [Video link](https://www.youtube.com/watch?v=zbcmykzmZIE&feature=youtu.be) – Project demonstration video.
 
